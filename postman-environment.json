@@ -1,0 +1,34 @@
+{
+  "id": "local-environment",
+  "name": "Reservation API - Local",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "user_id",
+      "value": "user_1",
+      "type": "default",
+      "enabled": true,
+      "description": "Test user ID"
+    },
+    {
+      "key": "item_id",
+      "value": "item_1",
+      "type": "default",
+      "enabled": true,
+      "description": "Test item ID"
+    },
+    {
+      "key": "reservation_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-saved after successful reservation"
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

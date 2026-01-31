@@ -1,0 +1,469 @@
+{
+  "info": {
+    "name": "Reservation System API",
+    "description": "Complete collection for testing the Production REST API reservation system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health & Setup",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the server is running"
+          }
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": ["{{base_url}}"],
+              "path": ["health", "ready"]
+            },
+            "description": "Check if server and dependencies are ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Items",
+      "item": [
+        {
+          "name": "List All Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/items?sortBy=name&sortOrder=asc",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "items"],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "name",
+                  "description": "Sort by: name or availableQty"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "asc",
+                  "description": "Sort order: asc or desc"
+                }
+              ]
+            },
+            "description": "Get all available items with their stock levels"
+          }
+        },
+        {
+          "name": "Get Single Item",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/items/{{item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "items", "{{item_id}}"]
+            },
+            "description": "Get details for a specific item"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Reservations",
+      "item": [
+        {
+          "name": "Reserve Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save reservation ID for use in other requests",
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.ok && jsonData.data.id) {",
+                  "        pm.environment.set('reservation_id', jsonData.data.id);",
+                  "        console.log('Reservation ID saved:', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$randomUUID}}",
+                "description": "Unique key for idempotency (auto-generated)"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "Create a new reservation\n\n✅ Test: Valid request\n❌ Test: Missing userId (remove userId field)\n❌ Test: Invalid qty (set qty to 0 or -1)\n❌ Test: Invalid ID format (use 'invalid' instead of 'item_1')"
+          }
+        },
+        {
+          "name": "Confirm Reservation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$randomUUID}}",
+                "skip": false
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"reservationId\": \"{{reservation_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "confirm"]
+            },
+            "description": "Confirm a reservation (permanently allocate stock)\n\nNote: Use reservation_id from Reserve response"
+          }
+        },
+        {
+          "name": "Cancel Reservation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"reservationId\": \"{{reservation_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cancel"]
+            },
+            "description": "Cancel a reservation and return stock to pool"
+          }
+        },
+        {
+          "name": "Get Reservation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/reservations/{{reservation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reservations", "{{reservation_id}}"]
+            },
+            "description": "Get details for a specific reservation"
+          }
+        },
+        {
+          "name": "List User's Reservations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/reservations/user/{{user_id}}?status=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reservations", "user", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by status: reserved, confirmed, cancelled, expired",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all reservations for a user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Admin",
+      "item": [
+        {
+          "name": "Expire Old Reservations",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/expire/run",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "expire", "run"]
+            },
+            "description": "Manually trigger expiration of old reservations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Feature Tests",
+      "item": [
+        {
+          "name": "Validation - Missing Field",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "❌ Expected: 400 Bad Request\n\nTests validation by omitting required userId field"
+          }
+        },
+        {
+          "name": "Validation - Invalid Quantity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "❌ Expected: 400 Bad Request\n\nTests validation by using invalid quantity (must be >= 1)"
+          }
+        },
+        {
+          "name": "Validation - Invalid ID Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"invalid-format\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "❌ Expected: 400 Bad Request\n\nTests validation by using invalid userId format (must be user_*)"
+          }
+        },
+        {
+          "name": "Not Found - Invalid Item",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/items/nonexistent",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "items", "nonexistent"]
+            },
+            "description": "❌ Expected: 404 Not Found\n\nTests error handling for non-existent item"
+          }
+        },
+        {
+          "name": "Conflict - Out of Stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 9999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "❌ Expected: 409 Conflict\n\nTests business logic by requesting more than available stock"
+          }
+        },
+        {
+          "name": "Idempotency Test 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "test-idempotency-{{$timestamp}}",
+                "description": "Fixed key for idempotency test"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "✅ First request with idempotency key\n\nSave the reservation ID from response"
+          }
+        },
+        {
+          "name": "Idempotency Test 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "test-idempotency-{{$timestamp}}",
+                "description": "SAME key as Idempotency Test 1 (use same timestamp)"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "✅ Second request with SAME idempotency key\n\nShould return same reservation ID as Test 1\n\nIMPORTANT: Run quickly after Test 1 with same timestamp!"
+          }
+        },
+        {
+          "name": "Rate Limit Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log('Rate limit test - request ' + (pm.iteration || 1));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user_rate_limit\",\n  \"itemId\": \"{{item_id}}\",\n  \"qty\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reserve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reserve"]
+            },
+            "description": "Run this 20+ times to test rate limiting\n\n✅ First 20 requests should succeed (201)\n❌ After 20 requests should fail (429)\n\nTip: Use Postman's Collection Runner to run this multiple times quickly"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

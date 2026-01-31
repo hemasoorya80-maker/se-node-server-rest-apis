@@ -12,6 +12,7 @@ Complete guide to building production-ready REST APIs with Node.js and Express.
 | [04 - Idempotency](04-idempotency.md) | Duplicate Requests | Handle retries safely with idempotency keys |
 | [05 - Caching](05-caching.md) | Performance | Improve response times with intelligent caching |
 | [06 - Logging](06-logging.md) | Observability | Debug production with structured logging |
+| [07 - Validation Guide](07-validation-guide.md) | Testing | Complete testing guide with curl examples |
 
 ## 🎯 Learning Path
 
@@ -65,6 +66,24 @@ npm run dev
 curl http://localhost:3000/health
 curl http://localhost:3000/api/v1/items
 ```
+
+## 🧪 Testing the API
+
+### Three Ways to Test:
+
+**1. Postman (Recommended)**
+- Import [`postman-collection.json`](../postman-collection.json)
+- Import [`postman-environment.json`](../postman-environment.json)
+- 📖 Full guide: [POSTMAN_GUIDE.md](../POSTMAN_GUIDE.md)
+
+**2. Learning Checklist**
+- Track your progress
+- Validate each feature
+- 📋 Checklist: [LEARNING_CHECKLIST.md](../LEARNING_CHECKLIST.md)
+
+**3. cURL Examples**
+- Terminal-based testing
+- 📖 Examples: [07-validation-guide.md](07-validation-guide.md)
 
 ## 📖 API Endpoints
 

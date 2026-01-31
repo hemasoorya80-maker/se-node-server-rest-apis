@@ -80,8 +80,21 @@ We've created comprehensive learning documentation in the [`docs/`](docs/) direc
 4. **[docs/04-idempotency.md](docs/04-idempotency.md)** - Handling duplicate requests
 5. **[docs/05-caching.md](docs/05-caching.md)** - Performance with caching
 6. **[docs/06-logging.md](docs/06-logging.md)** - Observability and tracing
+7. **[docs/07-validation-guide.md](docs/07-validation-guide.md)** - Complete testing guide
 
 **💡 Start with [docs/README.md](docs/README.md) for the full learning guide.**
+
+### Testing & Validation
+
+- **[POSTMAN_GUIDE.md](POSTMAN_GUIDE.md)** - Complete Postman testing instructions
+- **[LEARNING_CHECKLIST.md](LEARNING_CHECKLIST.md)** - Track your learning progress
+
+### Postman Collection
+
+Ready-to-use Postman collection for testing all features:
+
+- **[postman-collection.json](postman-collection.json)** - Import this into Postman
+- **[postman-environment.json](postman-environment.json)** - Environment variables
 
 ## 🛠️ The Stack
 
@@ -106,39 +119,54 @@ se-node-server-rest-apis/
 │   ├── 03-concurrency.md           # Race conditions
 │   ├── 04-idempotency.md           # Duplicate requests
 │   ├── 05-caching.md               # Performance
-│   └── 06-logging.md               # Observability
+│   ├── 06-logging.md               # Observability
+│   └── 07-validation-guide.md      # Complete testing guide
 │
 ├── src/                            # Source code
 │   ├── cache/                      # Caching layer
-│   │   └── index.ts                 # TTL cache with invalidation
+│   │   ├── index.ts                # TTL cache with invalidation
+│   │   └── README.md               # Module learning guide
 │   ├── config/                     # Configuration
-│   │   └── index.ts                 # Environment variables
+│   │   ├── index.ts                # Environment variables
+│   │   └── README.md               # Module learning guide
 │   ├── database/                   # Database layer
 │   │   ├── index.ts                # SQLite connection
 │   │   ├── migrate.ts              # Migration runner
-│   │   └── seed.ts                 # Data seeding
+│   │   ├── seed.ts                 # Data seeding
+│   │   └── README.md               # Module learning guide
 │   ├── http/                       # Response utilities
-│   │   └── index.ts                 # ok(), fail() helpers
+│   │   ├── index.ts                # ok(), fail() helpers
+│   │   └── README.md               # Module learning guide
 │   ├── idempotency/                # Idempotency handling
-│   │   └── index.ts                 # Duplicate request prevention
+│   │   ├── index.ts                # Duplicate request prevention
+│   │   └── README.md               # Module learning guide
 │   ├── middleware/                 # Express middleware
-│   │   ├── rateLimit.ts             # Token bucket rate limiting
-│   │   └── security.ts              # Security headers, CORS
+│   │   ├── rateLimit.ts            # Token bucket rate limiting
+│   │   ├── security.ts             # Security headers, CORS
+│   │   └── README.md               # Module learning guide
 │   ├── observability/              # Logging & metrics
-│   │   └── index.ts                 # Pino structured logging
+│   │   ├── index.ts                # Pino structured logging
+│   │   └── README.md               # Module learning guide
 │   ├── routes/                     # API endpoints
-│   │   ├── index.ts                 # Main routes
-│   │   └── health.ts                # Health checks
+│   │   ├── index.ts                # Main routes
+│   │   ├── health.ts               # Health checks
+│   │   └── README.md               # Module learning guide
 │   ├── services/                   # Business logic
-│   │   └── reservations.ts          # Domain logic
+│   │   ├── reservations.ts         # Domain logic
+│   │   └── README.md               # Module learning guide
 │   ├── types/                      # TypeScript types
-│   │   └── index.ts                 # All type definitions
+│   │   ├── index.ts                # All type definitions
+│   │   └── README.md               # Module learning guide
 │   ├── validation/                 # Zod schemas
-│   │   └── schemas.ts               # Request/response schemas
+│   │   ├── schemas.ts              # Request/response schemas
+│   │   └── README.md               # Module learning guide
 │   └── server.ts                   # Application entry point
 │
-├── tests/                          # Testing scripts
-│   └── examples.sh                 # cURL examples
+├── postman-collection.json         # Postman collection (import this!)
+├── postman-environment.json        # Postman environment (import this!)
+├── POSTMAN_GUIDE.md                # Complete Postman instructions
+├── LEARNING_CHECKLIST.md           # Track your progress
+├── POSTMAN_COLLECTION.md           # API testing with curl
 │
 ├── .env.example                    # Environment template
 ├── package.json                    # Dependencies
@@ -280,32 +308,47 @@ All responses follow a consistent format:
 }
 ```
 
-## 🧪 Testing
+## 🧪 Testing the API
 
-### Manual Testing
+### Option 1: Postman (Recommended)
+
+**Complete testing setup ready to use:**
+
+1. Import `postman-collection.json` into Postman
+2. Import `postman-environment.json` into Postman
+3. Select "Reservation API - Local" environment
+4. Start testing!
+
+📖 **Full instructions**: [POSTMAN_GUIDE.md](POSTMAN_GUIDE.md)
+
+### Option 2: cURL / Terminal
 
 ```bash
-# Run the test script
-chmod +x tests/examples.sh
-./tests/examples.sh
-
-# Or test manually
+# Health check
 curl http://localhost:3000/health
+
+# List items
 curl http://localhost:3000/api/v1/items
+
+# Reserve an item
 curl -X POST http://localhost:3000/api/v1/reserve \
   -H "Content-Type: application/json" \
-  -d '{"userId":"user_1","itemId":"item_1","qty":1}'
+  -H "Idempotency-Key: test-key-123" \
+  -d '{"userId":"user_test","itemId":"item_1","qty":1}'
+
+# Confirm reservation
+curl -X POST http://localhost:3000/api/v1/confirm \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"user_test","reservationId":"res_abc123"}'
 ```
 
-### Running Tests
+📖 **More examples**: [POSTMAN_COLLECTION.md](POSTMAN_COLLECTION.md)
 
-```bash
-# Run test suite (when implemented)
-npm test
+### Option 3: Learning Checklist
 
-# Run with coverage
-npm run test:coverage
-```
+Track your learning progress and validate each feature:
+
+📋 **Checklist**: [LEARNING_CHECKLIST.md](LEARNING_CHECKLIST.md)
 
 ## 🛠️ Development
 
