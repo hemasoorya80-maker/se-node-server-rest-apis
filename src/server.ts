@@ -25,7 +25,12 @@ import compression from 'compression';
 import { initializeSchema, closeDatabase } from './database/index.js';
 import { seedAll } from './database/seed.js';
 import { appConfig } from './config/index.js';
-import { logger, requestIdMiddleware, requestLoggingMiddleware, type RequestWithRequestId } from './observability/index.js';
+import {
+  logger,
+  requestIdMiddleware,
+  requestLoggingMiddleware,
+  type RequestWithRequestId,
+} from './observability/index.js';
 import { applySecurityMiddleware } from './middleware/security.js';
 import { strictRateLimiter, slowDown } from './middleware/rateLimit.js';
 import { initializeCache, shutdownCache } from './cache/index.js';
@@ -233,6 +238,12 @@ function startServer() {
     logger.info(`📖 API info available at ${appConfig.serverUrl}/api`);
   });
 
+  // Handle server startup errors
+  server.on('error', (err) => {
+    logger.error('Failed to start server', err);
+    process.exit(1);
+  });
+
   // Set server timeout
   server.timeout = appConfig.REQUEST_TIMEOUT;
   server.keepAliveTimeout = 65000; // Slightly higher than load balancer timeout
@@ -257,7 +268,10 @@ function startServer() {
  * 4. Cache is flushed
  * 5. Logs are flushed
  */
-async function gracefulShutdown(server: ReturnType<typeof startServer>, signal: string): Promise<void> {
+async function gracefulShutdown(
+  server: ReturnType<typeof startServer>,
+  signal: string
+): Promise<void> {
   logger.info(`\n${signal} received, starting graceful shutdown...`);
 
   // Stop accepting new connections
