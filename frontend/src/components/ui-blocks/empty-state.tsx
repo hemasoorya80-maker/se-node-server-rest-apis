@@ -3,12 +3,13 @@
 /**
  * Empty State
  * 
- * Friendly message when no data is available.
+ * Glass-morphism styled empty state messages.
  */
 
-import { Package, Search, CalendarX } from 'lucide-react';
+import { Package, CalendarX, Search, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
   type: 'items' | 'reservations' | 'search';
@@ -23,17 +24,17 @@ const config = {
   items: {
     icon: Package,
     title: 'No items available',
-    description: 'There are no items in the inventory at the moment.',
+    description: 'The inventory is currently empty. Check back later for new items.',
   },
   reservations: {
     icon: CalendarX,
-    title: 'No reservations found',
-    description: 'You haven\'t made any reservations yet.',
+    title: 'No reservations yet',
+    description: 'You haven\'t made any reservations. Browse items to get started.',
   },
   search: {
     icon: Search,
     title: 'No results found',
-    description: 'We couldn\'t find what you\'re looking for.',
+    description: 'We couldn\'t find what you\'re looking for. Try adjusting your search.',
   },
 };
 
@@ -41,21 +42,29 @@ export function EmptyState({ type, action, className }: EmptyStateProps) {
   const { icon: Icon, title, description } = config[type];
 
   return (
-    <div className={`flex flex-col items-center justify-center py-12 text-center ${className}`}>
-      <div className="bg-slate-100 p-4 rounded-full mb-4">
-        <Icon className="h-8 w-8 text-slate-400" />
+    <div className={cn(
+      "glass rounded-2xl p-12 text-center",
+      className
+    )}>
+      <div className="max-w-md mx-auto">
+        <div className="inline-flex p-5 rounded-2xl bg-primary/10 mb-6">
+          <Icon className="h-10 w-10 text-primary" />
+        </div>
+        <h3 className="text-xl font-semibold text-foreground mb-2">
+          {title}
+        </h3>
+        <p className="text-muted-foreground mb-8 leading-relaxed">
+          {description}
+        </p>
+        {action && (
+          <Button asChild className="rounded-xl">
+            <Link href={action.href} className="gap-2">
+              {action.label}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
       </div>
-      <h3 className="text-lg font-semibold text-slate-900 mb-1">
-        {title}
-      </h3>
-      <p className="text-slate-500 max-w-sm mb-6">
-        {description}
-      </p>
-      {action && (
-        <Button asChild>
-          <Link href={action.href}>{action.label}</Link>
-        </Button>
-      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 /**
  * Item Detail Page
  * 
- * Shows item details and provides a form to reserve the item.
+ * Glassmorphism detail view with reservation form.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,12 +19,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Package, ArrowLeft, Minus, Plus, Loader2 } from 'lucide-react';
+import { 
+  Package, 
+  ArrowLeft, 
+  Minus, 
+  Plus, 
+  Loader2, 
+  ShoppingCart,
+  Info,
+  Clock,
+  Shield,
+  CheckCircle2
+} from 'lucide-react';
 import { getItem, reserveItem } from '@/lib/api';
 import { queryKeys } from '@/lib/query';
 import { ErrorAlert } from '@/components/ui-blocks/error-alert';
 import { ItemDetailSkeleton } from '@/components/ui-blocks/loading-skeleton';
 import { isApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 // ============================================
 // Form Schema
@@ -46,7 +58,6 @@ export default function ItemDetailPage() {
   const itemId = params.id as string;
   const queryClient = useQueryClient();
 
-  // Fetch item details
   const { 
     data: item, 
     isLoading: isLoadingItem, 
@@ -59,26 +70,24 @@ export default function ItemDetailPage() {
     enabled: !!itemId,
   });
 
-  // Reserve mutation
   const reserveMutation = useMutation({
     mutationFn: (data: ReserveFormData) => reserveItem({ ...data, itemId }),
     onSuccess: (reservation) => {
-      toast.success('Reservation created successfully!', {
-        description: `Reserved ${reservation.qty} x ${item?.name}. Expires at ${new Date(reservation.expiresAt).toLocaleTimeString()}`,
+      toast.success('Reservation created!', {
+        description: `Reserved ${reservation.qty}× ${item?.name}. Expires at ${new Date(reservation.expiresAt).toLocaleTimeString()}`,
+        icon: <CheckCircle2 className="h-4 w-4" />,
       });
       
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: queryKeys.items });
       queryClient.invalidateQueries({ queryKey: queryKeys.item(itemId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations(reservation.userId) });
       
-      // Reset form
       reset();
     },
     onError: (error) => {
       if (isApiError(error)) {
-        toast.error('Failed to create reservation', {
-          description: `${error.message}${error.requestId ? ` (Request ID: ${error.requestId})` : ''}`,
+        toast.error('Reservation failed', {
+          description: error.message,
         });
       } else {
         toast.error('An unexpected error occurred');
@@ -86,7 +95,6 @@ export default function ItemDetailPage() {
     },
   });
 
-  // Form setup
   const {
     register,
     handleSubmit,
@@ -108,43 +116,37 @@ export default function ItemDetailPage() {
     reserveMutation.mutate(data);
   };
 
-  // Loading state
   if (isLoadingItem) {
     return <ItemDetailSkeleton />;
   }
 
-  // Error state
   if (isError) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <Button variant="ghost" asChild className="mb-4">
           <Link href="/items">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Items
           </Link>
         </Button>
-        <ErrorAlert 
-          error={error} 
-          title="Failed to load item" 
-          onRetry={refetch} 
-        />
+        <ErrorAlert error={error} title="Failed to load item" onRetry={refetch} />
       </div>
     );
   }
 
-  // Item not found
   if (!item) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <Button variant="ghost" asChild className="mb-4">
           <Link href="/items">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Items
           </Link>
         </Button>
-        <Card>
+        <Card className="glass">
           <CardContent className="py-12 text-center">
-            <p className="text-slate-500">Item not found</p>
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground">Item not found</p>
           </CardContent>
         </Card>
       </div>
@@ -156,26 +158,35 @@ export default function ItemDetailPage() {
   const canIncrease = quantity < Math.min(5, item.availableQty);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Back Button */}
-      <Button variant="ghost" asChild>
+      <Button variant="ghost" asChild className="group">
         <Link href="/items">
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
           Back to Items
         </Link>
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Item Details */}
-        <Card>
-          <CardHeader>
+        <Card className="glass overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+          <CardHeader className="relative">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-slate-100 p-3 rounded-lg">
-                  <Package className="h-6 w-6 text-slate-700" />
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-4 rounded-2xl",
+                  item.availableQty > 0 
+                    ? "bg-gradient-to-br from-primary/20 to-primary/10" 
+                    : "bg-muted"
+                )}>
+                  <Package className={cn(
+                    "h-8 w-8",
+                    item.availableQty > 0 ? "text-primary" : "text-muted-foreground"
+                  )} />
                 </div>
                 <div>
-                  <CardTitle>{item.name}</CardTitle>
+                  <CardTitle className="text-2xl">{item.name}</CardTitle>
                   <CardDescription className="font-mono text-xs mt-1">
                     {item.id}
                   </CardDescription>
@@ -183,67 +194,98 @@ export default function ItemDetailPage() {
               </div>
               <Badge 
                 variant={item.availableQty > 0 ? 'default' : 'destructive'}
-                className="text-sm"
+                className={cn(
+                  "text-sm px-3 py-1",
+                  item.availableQty > 0 && "bg-green-500/20 text-green-700 hover:bg-green-500/30 dark:bg-green-500/20 dark:text-green-400"
+                )}
               >
                 {item.availableQty > 0 ? `${item.availableQty} available` : 'Out of stock'}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="relative space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <p className="text-sm text-slate-500">Item ID</p>
+              <div className="glass-subtle p-4 rounded-xl">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Item ID</p>
                 <p className="font-mono text-sm font-medium">{item.id}</p>
               </div>
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <p className="text-sm text-slate-500">Available Quantity</p>
-                <p className="text-2xl font-bold">{item.availableQty}</p>
+              <div className="glass-subtle p-4 rounded-xl">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Stock</p>
+                <p className={cn(
+                  "text-3xl font-bold",
+                  item.availableQty > 0 ? "text-foreground" : "text-destructive"
+                )}>
+                  {item.availableQty}
+                </p>
               </div>
             </div>
             
-            <Separator />
+            <Separator className="opacity-50" />
             
-            <div className="text-sm text-slate-600 space-y-2">
-              <p>
-                <strong>How reservations work:</strong>
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-slate-500">
-                <li>Reserve up to 5 items at once</li>
-                <li>Reservations expire after 10 minutes</li>
-                <li>Confirm your reservation to complete the process</li>
-                <li>Cancel anytime before confirmation</li>
-              </ul>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Clock className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">10-Minute Expiration</p>
+                  <p className="text-sm text-muted-foreground">Reservations auto-expire if not confirmed</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Idempotency Protected</p>
+                  <p className="text-sm text-muted-foreground">Safe to retry if network fails</p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Reservation Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Make a Reservation</CardTitle>
-            <CardDescription>
-              Enter your details to reserve this item
-            </CardDescription>
+        <Card className="glass overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5" />
+          <CardHeader className="relative">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-primary/10">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Make Reservation</CardTitle>
+                <CardDescription>Secure your items now</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* User ID Field */}
               <div className="space-y-2">
-                <Label htmlFor="userId">User ID</Label>
+                <Label htmlFor="userId" className="text-sm font-medium">
+                  User ID
+                </Label>
                 <Input
                   id="userId"
                   {...register('userId')}
                   placeholder="Enter your user ID"
-                  disabled={reserveMutation.isPending}
+                  disabled={reserveMutation.isPending || isOutOfStock}
+                  className="glass-subtle border-0 focus-visible:ring-primary"
                 />
                 {errors.userId && (
-                  <p className="text-sm text-red-500">{errors.userId.message}</p>
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    {errors.userId.message}
+                  </p>
                 )}
               </div>
 
               {/* Quantity Field */}
               <div className="space-y-2">
-                <Label htmlFor="qty">Quantity</Label>
+                <Label htmlFor="qty" className="text-sm font-medium">
+                  Quantity
+                </Label>
                 <div className="flex items-center gap-3">
                   <Button
                     type="button"
@@ -251,6 +293,7 @@ export default function ItemDetailPage() {
                     size="icon"
                     onClick={() => setValue('qty', Math.max(1, quantity - 1))}
                     disabled={!canDecrease || reserveMutation.isPending || isOutOfStock}
+                    className="rounded-xl glass-subtle"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -258,7 +301,7 @@ export default function ItemDetailPage() {
                     id="qty"
                     type="number"
                     {...register('qty', { valueAsNumber: true })}
-                    className="text-center w-20"
+                    className="text-center w-24 glass-subtle border-0 text-lg font-semibold"
                     min={1}
                     max={Math.min(5, item.availableQty)}
                     disabled={reserveMutation.isPending || isOutOfStock}
@@ -269,28 +312,32 @@ export default function ItemDetailPage() {
                     size="icon"
                     onClick={() => setValue('qty', Math.min(5, item.availableQty, quantity + 1))}
                     disabled={!canIncrease || reserveMutation.isPending || isOutOfStock}
+                    className="rounded-xl glass-subtle"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 {errors.qty && (
-                  <p className="text-sm text-red-500">{errors.qty.message}</p>
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    {errors.qty.message}
+                  </p>
                 )}
-                <p className="text-xs text-slate-500">
-                  Max: {Math.min(5, item.availableQty)} items
+                <p className="text-xs text-muted-foreground">
+                  Maximum: {Math.min(5, item.availableQty)} items per reservation
                 </p>
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full h-12 text-base font-medium rounded-xl"
                 disabled={reserveMutation.isPending || isOutOfStock}
               >
                 {reserveMutation.isPending ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating Reservation...
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Processing...
                   </>
                 ) : isOutOfStock ? (
                   'Out of Stock'
@@ -301,12 +348,15 @@ export default function ItemDetailPage() {
 
               {/* Error Display */}
               {reserveMutation.isError && isApiError(reserveMutation.error) && (
-                <div className="p-4 bg-red-50 rounded-lg text-sm">
-                  <p className="font-medium text-red-800">Reservation Failed</p>
-                  <p className="text-red-600 mt-1">{reserveMutation.error.message}</p>
+                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-sm">
+                  <p className="font-medium text-destructive flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Reservation Failed
+                  </p>
+                  <p className="text-destructive/80 mt-1">{reserveMutation.error.message}</p>
                   {reserveMutation.error.requestId && (
-                    <p className="text-red-500 mt-2 text-xs">
-                      Request ID: <code>{reserveMutation.error.requestId}</code>
+                    <p className="text-destructive/60 mt-2 text-xs font-mono">
+                      Request ID: {reserveMutation.error.requestId}
                     </p>
                   )}
                 </div>

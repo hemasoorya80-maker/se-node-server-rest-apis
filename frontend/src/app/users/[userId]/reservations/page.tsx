@@ -3,7 +3,7 @@
 /**
  * User Reservations Page
  * 
- * Displays all reservations for a user with confirm/cancel actions.
+ * Glassmorphism reservation management with confirm/cancel actions.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,18 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { AlertCircle, ArrowLeft, Check, X, Package, Loader2, Clock } from 'lucide-react';
+import { 
+  AlertCircle, 
+  ArrowLeft, 
+  Check, 
+  X, 
+  Package, 
+  Loader2, 
+  Clock,
+  Calendar,
+  Sparkles,
+  ShoppingBag
+} from 'lucide-react';
 import { 
   getReservationsByUser, 
   confirmReservation, 
@@ -35,6 +46,7 @@ import { EmptyState } from '@/components/ui-blocks/empty-state';
 import { ReservationsSkeleton } from '@/components/ui-blocks/loading-skeleton';
 import { StatusBadge } from '@/components/ui-blocks/status-badge';
 import { isApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 // ============================================
 // Component
@@ -45,7 +57,6 @@ export default function UserReservationsPage() {
   const userId = params.userId as string;
   const queryClient = useQueryClient();
 
-  // Fetch reservations
   const { 
     data: reservations, 
     isLoading, 
@@ -58,16 +69,15 @@ export default function UserReservationsPage() {
     enabled: !!userId,
   });
 
-  // Confirm mutation
   const confirmMutation = useMutation({
     mutationFn: confirmReservation,
     onSuccess: (_, variables) => {
-      toast.success('Reservation confirmed successfully!');
+      toast.success('Reservation confirmed!', {
+        icon: <Check className="h-4 w-4" />,
+      });
       
-      // Find the reservation to get itemId for invalidation
       const reservation = reservations?.find(r => r.id === variables.reservationId);
       
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations(userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.items });
       if (reservation) {
@@ -76,25 +86,20 @@ export default function UserReservationsPage() {
     },
     onError: (error) => {
       if (isApiError(error)) {
-        toast.error('Failed to confirm reservation', {
-          description: `${error.message}${error.requestId ? ` (Request ID: ${error.requestId})` : ''}`,
-        });
-      } else {
-        toast.error('An unexpected error occurred');
+        toast.error('Failed to confirm', { description: error.message });
       }
     },
   });
 
-  // Cancel mutation
   const cancelMutation = useMutation({
     mutationFn: cancelReservation,
     onSuccess: (_, variables) => {
-      toast.success('Reservation cancelled successfully!');
+      toast.success('Reservation cancelled', {
+        icon: <X className="h-4 w-4" />,
+      });
       
-      // Find the reservation to get itemId for invalidation
       const reservation = reservations?.find(r => r.id === variables.reservationId);
       
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations(userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.items });
       if (reservation) {
@@ -103,11 +108,7 @@ export default function UserReservationsPage() {
     },
     onError: (error) => {
       if (isApiError(error)) {
-        toast.error('Failed to cancel reservation', {
-          description: `${error.message}${error.requestId ? ` (Request ID: ${error.requestId})` : ''}`,
-        });
-      } else {
-        toast.error('An unexpected error occurred');
+        toast.error('Failed to cancel', { description: error.message });
       }
     },
   });
@@ -127,7 +128,6 @@ export default function UserReservationsPage() {
     );
   };
 
-  // Filter active and past reservations
   const activeReservations = reservations?.filter(
     r => r.status === 'reserved' || r.status === 'confirmed'
   ) || [];
@@ -136,26 +136,29 @@ export default function UserReservationsPage() {
   ) || [];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" asChild className="group">
             <Link href="/items">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
               Back
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">My Reservations</h1>
-            <p className="text-slate-500 mt-1">
-              User: <code className="bg-slate-100 px-2 py-0.5 rounded text-sm">{userId}</code>
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium text-primary uppercase tracking-wider">Reservations</span>
+            </div>
+            <h1 className="text-3xl font-bold">My Reservations</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <AlertCircle className="h-4 w-4" />
-          <span>Reserved items expire after 10 minutes</span>
+        <div className="flex items-center gap-3">
+          <div className="glass-subtle px-4 py-2 rounded-full text-sm">
+            <span className="text-muted-foreground">User:</span>
+            <code className="ml-2 font-mono text-foreground">{userId}</code>
+          </div>
         </div>
       </div>
 
@@ -163,42 +166,44 @@ export default function UserReservationsPage() {
       {isLoading ? (
         <ReservationsSkeleton />
       ) : isError ? (
-        <ErrorAlert 
-          error={error} 
-          title="Failed to load reservations" 
-          onRetry={refetch} 
-        />
+        <ErrorAlert error={error} title="Failed to load reservations" onRetry={refetch} />
       ) : reservations?.length === 0 ? (
-        <EmptyState 
-          type="reservations" 
-          action={{ label: 'Browse Items', href: '/items' }}
-        />
+        <EmptyState type="reservations" action={{ label: 'Browse Items', href: '/items' }} />
       ) : (
         <div className="space-y-8">
           {/* Active Reservations */}
           {activeReservations.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Active Reservations
-                  <Badge variant="secondary">{activeReservations.length}</Badge>
-                </CardTitle>
-                <CardDescription>
-                  These reservations are currently active and can be managed
-                </CardDescription>
+            <Card className="glass overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+              <CardHeader className="relative">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <ShoppingBag className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Active Reservations</CardTitle>
+                      <CardDescription>
+                        {activeReservations.length} reservation{activeReservations.length !== 1 ? 's' : ''} ready for action
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-sm px-3">
+                    {activeReservations.length}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
+              <CardContent className="relative">
+                <div className="rounded-xl overflow-hidden glass-subtle">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Reservation ID</TableHead>
-                        <TableHead>Item</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                      <TableRow className="hover:bg-transparent border-border/50">
+                        <TableHead className="text-xs font-medium uppercase tracking-wider">Reservation</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider">Item</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider">Qty</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider">Expires</TableHead>
+                        <TableHead className="text-right text-xs font-medium uppercase tracking-wider">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -220,40 +225,38 @@ export default function UserReservationsPage() {
 
           {/* Past Reservations */}
           {pastReservations.length > 0 && (
-            <Card>
+            <Card className="glass overflow-hidden opacity-80">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-600">
-                  <Package className="h-5 w-5" />
-                  Past Reservations
-                  <Badge variant="outline">{pastReservations.length}</Badge>
-                </CardTitle>
-                <CardDescription>
-                  These reservations have been completed, cancelled, or expired
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-muted">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-muted-foreground">History</CardTitle>
+                    <CardDescription>
+                      {pastReservations.length} past reservation{pastReservations.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <div className="rounded-xl overflow-hidden glass-subtle">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Reservation ID</TableHead>
-                        <TableHead>Item</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
+                      <TableRow className="hover:bg-transparent border-border/50">
+                        <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reservation</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Item</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Qty</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {pastReservations.map((reservation) => (
                         <TableRow key={reservation.id} className="opacity-60">
-                          <TableCell className="font-mono text-xs">
-                            {reservation.id}
-                          </TableCell>
+                          <TableCell className="font-mono text-xs">{reservation.id}</TableCell>
                           <TableCell>
-                            <Link 
-                              href={`/items/${reservation.itemId}`}
-                              className="hover:underline"
-                            >
+                            <Link href={`/items/${reservation.itemId}`} className="hover:underline">
                               {reservation.itemId}
                             </Link>
                           </TableCell>
@@ -261,7 +264,7 @@ export default function UserReservationsPage() {
                           <TableCell>
                             <StatusBadge status={reservation.status} />
                           </TableCell>
-                          <TableCell className="text-sm text-slate-500">
+                          <TableCell className="text-sm text-muted-foreground">
                             {new Date(reservation.createdAt).toLocaleDateString()}
                           </TableCell>
                         </TableRow>
@@ -297,29 +300,35 @@ function ReservationRow({ reservation, onConfirm, onCancel, isPending }: Reserva
   const canCancel = reservation.status === 'reserved' && !isExpired;
 
   return (
-    <TableRow>
-      <TableCell className="font-mono text-xs">
-        {reservation.id}
-      </TableCell>
+    <TableRow className="group border-border/50">
+      <TableCell className="font-mono text-xs">{reservation.id}</TableCell>
       <TableCell>
         <Link 
           href={`/items/${reservation.itemId}`}
-          className="hover:underline font-medium"
+          className="font-medium hover:text-primary transition-colors"
         >
           {reservation.itemId}
         </Link>
       </TableCell>
-      <TableCell>{reservation.qty}</TableCell>
+      <TableCell>
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-sm font-medium">
+          {reservation.qty}
+        </span>
+      </TableCell>
       <TableCell>
         <StatusBadge status={reservation.status} />
       </TableCell>
       <TableCell>
         {reservation.status === 'reserved' ? (
-          <span className={isExpired ? 'text-red-500' : 'text-amber-600'}>
-            {isExpired ? 'Expired' : new Date(reservation.expiresAt).toLocaleTimeString()}
+          <span className={cn(
+            "flex items-center gap-1.5 text-sm",
+            isExpired ? 'text-destructive' : 'text-amber-600'
+          )}>
+            <Clock className="h-3.5 w-3.5" />
+            {isExpired ? 'Expired' : new Date(reservation.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         ) : (
-          <span className="text-slate-400">-</span>
+          <span className="text-muted-foreground text-sm">-</span>
         )}
       </TableCell>
       <TableCell className="text-right">
@@ -329,6 +338,7 @@ function ReservationRow({ reservation, onConfirm, onCancel, isPending }: Reserva
               size="sm"
               onClick={() => onConfirm(reservation.id)}
               disabled={isPending}
+              className="rounded-lg"
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -346,6 +356,7 @@ function ReservationRow({ reservation, onConfirm, onCancel, isPending }: Reserva
               variant="outline"
               onClick={() => onCancel(reservation.id)}
               disabled={isPending}
+              className="rounded-lg glass-subtle"
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -358,7 +369,7 @@ function ReservationRow({ reservation, onConfirm, onCancel, isPending }: Reserva
             </Button>
           )}
           {!canConfirm && !canCancel && (
-            <span className="text-sm text-slate-400">No actions available</span>
+            <span className="text-sm text-muted-foreground py-2">Completed</span>
           )}
         </div>
       </TableCell>

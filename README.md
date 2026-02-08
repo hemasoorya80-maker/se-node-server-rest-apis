@@ -68,6 +68,52 @@ curl -X POST http://localhost:3000/api/v1/reserve \
   -d '{"userId":"user_test","itemId":"item_1","qty":1}'
 ```
 
+## 🎨 Frontend Application
+
+A modern Next.js 16 frontend with glass-morphism UI is included in the [`frontend/`](frontend/) directory.
+
+### Frontend Stack
+
+| Component | Technology |
+|-----------|-----------|
+| **Framework** | Next.js 16 (App Router) |
+| **Language** | TypeScript 5 |
+| **Styling** | Tailwind CSS 4 |
+| **UI Library** | shadcn/ui |
+| **State** | TanStack Query |
+| **Forms** | React Hook Form + Zod |
+
+### Running the Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env.local
+
+# Start development server (runs on port 3001)
+npm run dev
+```
+
+The frontend will be available at [http://localhost:3001](http://localhost:3001)
+
+### Frontend Features
+
+- ✅ **Glass-morphism Design** - Modern translucent UI with backdrop blur
+- ✅ **Real-time Updates** - TanStack Query for live data synchronization
+- ✅ **Form Validation** - Zod schemas matching backend validation
+- ✅ **Idempotency** - Automatic Idempotency-Key header generation
+- ✅ **Error Handling** - Request ID display for debugging
+- ✅ **Responsive** - Mobile-first design
+
+📖 **[frontend/README.md](frontend/README.md)** - Complete frontend documentation
+
+---
+
 ## 📚 Learning Path
 
 ### Start Here: The Documentation
@@ -98,6 +144,8 @@ Ready-to-use Postman collection for testing all features:
 
 ## 🛠️ The Stack
 
+### Backend
+
 | Component | Technology | Why? |
 |-----------|-----------|------|
 | **Runtime** | Node.js 20+ | Latest LTS, ES2022 support |
@@ -107,6 +155,17 @@ Ready-to-use Postman collection for testing all features:
 | **Validation** | Zod | Runtime + compile-time validation |
 | **Logging** | Pino | Ultra-fast structured logging |
 | **Security** | Helmet, CORS | Security headers, cross-origin |
+
+### Frontend
+
+| Component | Technology | Why? |
+|-----------|-----------|------|
+| **Framework** | Next.js 16 | React 19, App Router, Turbopack |
+| **Styling** | Tailwind CSS 4 | Utility-first, JIT compiler |
+| **UI Components** | shadcn/ui | Accessible, customizable |
+| **State Management** | TanStack Query | Server state, caching |
+| **Forms** | React Hook Form | Performance, flexibility |
+| **Validation** | Zod | Type-safe schema validation |
 
 ## 📁 Project Structure
 
@@ -161,6 +220,20 @@ se-node-server-rest-apis/
 │   │   ├── schemas.ts              # Request/response schemas
 │   │   └── README.md               # Module learning guide
 │   └── server.ts                   # Application entry point
+│
+├── frontend/                       # Next.js 16 Frontend Application
+│   ├── src/                        # Frontend source
+│   │   ├── app/                    # Next.js App Router
+│   │   ├── components/             # React components
+│   │   │   ├── layout/             # Layout components
+│   │   │   ├── ui/                 # shadcn/ui components
+│   │   │   └── ui-blocks/          # Custom UI blocks
+│   │   └── lib/                    # Utilities
+│   │       ├── api/                # API client
+│   │       └── query/              # TanStack Query
+│   ├── .env.example                # Frontend env template
+│   ├── package.json
+│   └── README.md                   # Frontend documentation
 │
 ├── postman-collection.json         # Postman collection (import this!)
 ├── postman-environment.json        # Postman environment (import this!)
