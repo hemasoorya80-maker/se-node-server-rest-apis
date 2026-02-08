@@ -401,6 +401,27 @@ Errors are displayed in the UI with:
 4. Display success toast on completion
 5. Show error with request ID on failure
 
+### Defensive Programming
+
+Always assume the API might return unexpected data. The frontend includes defensive patterns:
+
+```typescript
+// Example: Ensure arrays are always arrays
+const reservations = Array.isArray(rawReservations) ? rawReservations : [];
+
+// Example: Provide default values
+const items = data ?? [];
+
+// Example: Safe property access
+const count = data?.length ?? 0;
+```
+
+This handles:
+- Backend returning single objects instead of arrays (bug fixed in backend)
+- `undefined` or `null` responses
+- Missing properties in API responses
+- Network errors with partial data
+
 ---
 
 ## Troubleshooting

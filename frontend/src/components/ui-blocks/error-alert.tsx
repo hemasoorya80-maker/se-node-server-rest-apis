@@ -29,7 +29,11 @@ export function ErrorAlert({
 }: ErrorAlertProps) {
   const [showDetails, setShowDetails] = useState(false);
   
-  const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+  // Extract error properties - check for both Error instances and ApiError objects
+  const rawMessage = (error as { message?: string })?.message;
+  const message = typeof rawMessage === 'string' && rawMessage.length > 0
+    ? rawMessage
+    : 'An unexpected error occurred';
   const requestId = (error as { requestId?: string }).requestId;
   const code = (error as { code?: string }).code;
   const status = (error as { status?: number }).status;

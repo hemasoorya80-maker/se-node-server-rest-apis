@@ -461,7 +461,7 @@ export function listReservationsForUser(
     params.push(limit);
   }
 
-  const reservations = db.prepare(query).get(...params) as Reservation[];
+  const reservations = db.prepare(query).all(...params) as Reservation[];
 
   return reservations;
 }

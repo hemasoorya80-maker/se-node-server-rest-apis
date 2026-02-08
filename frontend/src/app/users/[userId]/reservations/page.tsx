@@ -58,7 +58,7 @@ export default function UserReservationsPage() {
   const queryClient = useQueryClient();
 
   const { 
-    data: reservations, 
+    data: rawReservations, 
     isLoading, 
     isError, 
     error, 
@@ -68,6 +68,13 @@ export default function UserReservationsPage() {
     queryFn: () => getReservationsByUser(userId),
     enabled: !!userId,
   });
+
+  // Normalize reservations to always be an array
+  const reservations = Array.isArray(rawReservations) 
+    ? rawReservations 
+    : rawReservations 
+      ? [rawReservations] 
+      : [];
 
   const confirmMutation = useMutation({
     mutationFn: confirmReservation,
