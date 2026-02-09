@@ -11,37 +11,43 @@ A modern, production-ready Next.js 16 frontend for the Reservation System API. B
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [What This Project Teaches](#what-this-project-teaches)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-  - [1. Start the Backend](#1-start-the-backend-port-3000)
-  - [2. Start the Frontend](#2-start-the-frontend-port-3001)
 - [Environment Variables](#environment-variables)
 - [Available Scripts](#available-scripts)
 - [Project Architecture](#project-architecture)
-- [Key Features](#key-features)
+- [Learning Concepts](#learning-concepts)
+  - [Server State Management](#1-server-state-management-with-tanstack-query)
+  - [Forms & Validation](#2-forms--validation-with-react-hook-form--zod)
+  - [API Integration](#3-api-integration-patterns)
+  - [Error Handling](#4-error-handling-strategies)
+  - [Component Architecture](#5-component-architecture)
+  - [Modern CSS](#6-modern-css-with-tailwind-v4)
 - [Application Routes](#application-routes)
-- [API Integration](#api-integration)
-- [State Management](#state-management)
-- [Forms & Validation](#forms--validation)
 - [Component Library](#component-library)
-- [Error Handling](#error-handling)
+- [Testing](#testing)
 - [Development Guidelines](#development-guidelines)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
-## Overview
+## What This Project Teaches
 
-This frontend application provides a complete user interface for the Reservation System API. It allows users to:
+This is a **learning repository** for modern React frontend development. Every concept is implemented with extensive documentation, inline code comments, and real-world patterns.
 
-- Browse available inventory items
-- View item details and stock levels
-- Make reservations with automatic expiration
-- Confirm or cancel existing reservations
-- Monitor system health status
+### You Will Learn
 
-The application demonstrates modern React development practices including server state management with TanStack Query, form handling with React Hook Form, and a polished UI with shadcn/ui components.
+1. ✅ **Server State Management** - How to use TanStack Query for data fetching, caching, and synchronization
+2. ✅ **Form Handling** - How to build type-safe forms with React Hook Form and Zod validation
+3. ✅ **API Integration** - How to create a type-safe API client with error normalization
+4. ✅ **Optimistic Updates** - How to make the UI feel instant while waiting for the server
+5. ✅ **Cache Invalidation** - How to keep data consistent across the application
+6. ✅ **Error Boundaries** - How to gracefully handle and display errors
+7. ✅ **Component Composition** - How to build reusable, composable UI components
+8. ✅ **Modern CSS** - How to use Tailwind CSS v4 with custom utilities
+9. ✅ **Glass-morphism Design** - How to create modern glass-like UI effects
+10. ✅ **Testing with MSW** - How to mock API calls for reliable tests
 
 ---
 
@@ -118,6 +124,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 | `npm run build` | Create production build | - |
 | `npm run start` | Start production server | 3001 |
 | `npm run lint` | Run ESLint | - |
+| `npm test` | Run Vitest tests | - |
+| `npm run test:ui` | Run tests with UI | - |
 
 ---
 
@@ -168,48 +176,345 @@ frontend/
 │   │   │   ├── provider.tsx    # QueryClient provider
 │   │   │   └── index.ts
 │   │   └── utils.ts            # Utility functions
+│   ├── test/                   # Test infrastructure
+│   │   ├── mocks/              # MSW mocks
+│   │   │   ├── data.ts         # Mock data factories
+│   │   │   ├── handlers.ts     # MSW request handlers
+│   │   │   ├── server.ts       # MSW server setup
+│   │   │   └── index.ts        # Public exports
+│   │   └── setup.ts            # Test setup
 │   └── ...
 ├── public/                     # Static assets
 ├── .env.local                  # Environment variables
 ├── next.config.ts              # Next.js configuration
 ├── package.json
 ├── tailwind.config.ts
-└── tsconfig.json
+├── tsconfig.json
+└── vitest.config.ts            # Vitest configuration
 ```
 
 ---
 
-## Key Features
+## Learning Concepts
 
-### 🎨 Modern UI
-- Built with **shadcn/ui** components
-- **Tailwind CSS** for styling
-- Responsive design for all screen sizes
-- Dark/light mode support (system preference)
+### 1. Server State Management with TanStack Query
 
-### 🔄 State Management
-- **TanStack Query** for server state
-- Automatic caching and background refetching
-- Optimistic updates for mutations
-- Query invalidation for data consistency
+**What is Server State?**
+Server state is data that lives on the server and is fetched by the client. Unlike client state (like UI toggles), server state:
+- Can be changed by other users
+- Needs to be cached for performance
+- Can become stale and needs refreshing
+- Requires loading and error states
 
-### ✅ Forms & Validation
-- **React Hook Form** for form handling
-- **Zod** for runtime validation
-- Client-side validation mirroring backend rules
-- Error display with request IDs for debugging
+**Why TanStack Query?**
+Traditional approaches (useEffect + fetch) require you to manually handle:
+- Loading states
+- Error handling
+- Caching
+- Refetching
+- Race conditions
 
-### 🛡️ Error Handling
-- Global error boundary
-- API error normalization
-- User-friendly error messages
-- Request ID tracking for support
+TanStack Query handles all of this automatically.
 
-### ⚡ Performance
-- Turbopack for fast development builds
-- Code splitting by route
-- Image optimization
-- Static page generation where possible
+**Key Concepts Demonstrated:**
+
+```typescript
+// useQuery - For reading data
+const { data, isLoading, error } = useQuery({
+  queryKey: ['item', id],
+  queryFn: () => getItem(id),
+});
+
+// useMutation - For writing data
+const mutation = useMutation({
+  mutationFn: reserveItem,
+  onSuccess: () => {
+    // Invalidate related queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['items'] });
+  },
+});
+```
+
+**Query Keys - The Secret to Cache Management:**
+
+Query keys are like addresses for your cached data. TanStack Query uses them to:
+- Identify cached data
+- Determine when to refetch
+- Share data between components
+
+```typescript
+// Centralized query keys (src/lib/query/keys.ts)
+export const queryKeys = {
+  items: () => ['items'] as const,
+  item: (id: string) => ['item', id] as const,
+  reservations: (userId: string) => ['reservations', userId] as const,
+};
+
+// Usage - automatically tied to cache
+useQuery({ queryKey: queryKeys.item('item_1'), ... });
+
+// Invalidation - mark as stale to trigger refetch
+queryClient.invalidateQueries({ queryKey: queryKeys.items() });
+```
+
+**Cache Invalidation Strategy:**
+
+After mutations, we invalidate queries to keep data fresh:
+
+```typescript
+// After reserving an item:
+onSuccess: () => {
+  // Invalidate items list (stock changed)
+  queryClient.invalidateQueries({ queryKey: queryKeys.items() });
+  // Invalidate user's reservations
+  queryClient.invalidateQueries({ 
+    queryKey: queryKeys.reservations(userId) 
+  });
+}
+```
+
+---
+
+### 2. Forms & Validation with React Hook Form + Zod
+
+**Why React Hook Form?**
+- Minimal re-renders (performance)
+- Built-in validation support
+- Easy error handling
+- TypeScript support
+
+**Why Zod?**
+- Runtime type validation
+- TypeScript inference
+- Declarative schemas
+- Great error messages
+
+**The Pattern:**
+
+```typescript
+// 1. Define schema
+const reserveSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+  qty: z.coerce.number().int().min(1).max(5),
+});
+
+// 2. Infer TypeScript type from schema
+type ReserveFormData = z.infer<typeof reserveSchema>;
+
+// 3. Use in component
+const form = useForm<ReserveFormData>({
+  resolver: zodResolver(reserveSchema),
+  defaultValues: { userId: '', qty: 1 },
+});
+
+// 4. Handle submission
+const onSubmit = (data: ReserveFormData) => {
+  mutation.mutate(data);
+};
+```
+
+**Key Features:**
+- Real-time validation as user types
+- Disabled submit while pending
+- Clear error messages
+- Type-safe data throughout
+
+---
+
+### 3. API Integration Patterns
+
+**HTTP Client Abstraction:**
+
+We use a centralized HTTP client that handles:
+- Request/response formatting
+- Error normalization
+- Idempotency key generation
+- Header management
+
+```typescript
+// src/lib/api/client.ts
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  // 1. Build URL
+  // 2. Add headers (including Idempotency-Key if needed)
+  // 3. Handle {ok: true, data: ...} response format
+  // 4. Normalize errors to ApiError type
+  // 5. Return typed data
+}
+```
+
+**Idempotency Keys:**
+
+For operations that should only happen once (reserving, confirming), we add an `Idempotency-Key` header:
+
+```typescript
+// POST with idempotency key
+apiPost<Reservation>('/reserve', data, true);
+// Adds header: Idempotency-Key: <uuid>
+
+// If network fails and we retry with same key,
+// backend returns cached response instead of creating duplicate
+```
+
+**Error Normalization:**
+
+All API errors are normalized to a consistent format:
+
+```typescript
+interface ApiError {
+  status: number;      // HTTP status
+  code: string;        // Error code (e.g., "OUT_OF_STOCK")
+  message: string;     // Human-readable
+  details?: object;    // Extra context
+  requestId?: string;  // For debugging
+}
+```
+
+This allows the UI to handle errors consistently:
+- Display user-friendly messages
+- Show request ID for support
+- Handle specific error codes differently
+
+---
+
+### 4. Error Handling Strategies
+
+**Three Layers of Error Handling:**
+
+1. **Global Error Boundary** (layout.tsx)
+   - Catches React render errors
+   - Shows fallback UI
+   - Prevents app crashes
+
+2. **Query Error Handling** (useQuery)
+   - Catches API errors
+   - Provides error state to components
+   - Automatic retry for network errors
+
+3. **Mutation Error Handling** (useMutation)
+   - Shows toast notifications
+   - Keeps UI responsive
+   - Allows user to retry
+
+**Error Display Pattern:**
+
+```typescript
+// Component handles both loading and error states
+if (isLoading) return <LoadingSkeleton />;
+if (error) return <ErrorAlert error={error} />;
+return <DataView data={data} />;
+```
+
+**Defensive Programming:**
+
+Always assume the API might return unexpected data:
+
+```typescript
+// Normalize arrays (handle single object responses)
+const reservations = Array.isArray(rawReservations) 
+  ? rawReservations 
+  : rawReservations ? [rawReservations] : [];
+
+// Safe property access
+const count = data?.length ?? 0;
+```
+
+---
+
+### 5. Component Architecture
+
+**Three-Layer Component System:**
+
+```
+UI Components (shadcn/ui)
+    ↓
+UI Blocks (custom composed components)
+    ↓
+Page Components (route-specific)
+```
+
+**Layer 1: UI Components (Primitive)**
+- From shadcn/ui
+- Unstyled or minimally styled
+- Highly reusable
+- Examples: Button, Input, Card
+
+**Layer 2: UI Blocks (Composed)**
+- Domain-specific components
+- Combine multiple UI components
+- Handle common patterns
+- Examples: ErrorAlert, EmptyState
+
+```typescript
+// ErrorAlert combines Alert, Button, and logic
+function ErrorAlert({ error, onRetry }) {
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>{error.message}</AlertDescription>
+      {error.requestId && <CopyButton text={error.requestId} />}
+      {onRetry && <Button onClick={onRetry}>Retry</Button>}
+    </Alert>
+  );
+}
+```
+
+**Layer 3: Page Components (Route-Specific)**
+- Use UI Blocks and UI Components
+- Handle data fetching
+- Route-specific logic
+- Examples: ItemsPage, ItemDetailPage
+
+---
+
+### 6. Modern CSS with Tailwind v4
+
+**Tailwind CSS v4 Features Used:**
+
+1. **@theme Directive** - Define custom CSS variables
+```css
+@theme {
+  --color-primary: hsl(var(--primary));
+  --radius-lg: var(--radius);
+}
+```
+
+2. **@utility Directive** - Create reusable utility classes
+```css
+@utility {
+  .glass {
+    backdrop-blur: 24px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+```
+
+3. **CSS Custom Properties** - Dynamic theming
+```css
+:root {
+  --primary: 262.1 83.3% 57.8%;
+  --background: 0 0% 100%;
+}
+```
+
+**Glass-morphism Design:**
+
+The app uses a modern glass-morphism aesthetic:
+- Semi-transparent backgrounds
+- Backdrop blur effects
+- Subtle borders and shadows
+- Gradient accents
+
+```css
+.glass {
+  backdrop-blur-xl bg-white/70 
+  border border-white/20 
+  shadow-xl rounded-xl
+}
+```
 
 ---
 
@@ -242,86 +547,6 @@ frontend/
 
 ---
 
-## API Integration
-
-### HTTP Client (`src/lib/api/client.ts`)
-
-Centralized API client that handles:
-- Request/response formatting
-- Error normalization
-- Idempotency key generation for POST requests
-- Automatic header injection
-
-```typescript
-// Example usage
-const items = await apiGet<Item[]>('/items');
-const reservation = await apiPost<Reservation>('/reserve', data, true);
-```
-
-### Endpoints (`src/lib/api/endpoints.ts`)
-
-Typed functions for each API endpoint:
-
-| Function | Description | Idempotent |
-|----------|-------------|------------|
-| `listItems()` | Get all items | No |
-| `getItem(id)` | Get single item | No |
-| `reserveItem(data)` | Create reservation | **Yes** |
-| `getReservationsByUser(userId)` | Get user reservations | No |
-| `confirmReservation(data)` | Confirm reservation | **Yes** |
-| `cancelReservation(data)` | Cancel reservation | No |
-| `checkHealth()` | API health check | No |
-
----
-
-## State Management
-
-### Query Keys (`src/lib/query/keys.ts`)
-
-Centralized query keys for cache management:
-
-```typescript
-queryKeys.items           // ["items"]
-queryKeys.item(id)        // ["item", itemId]
-queryKeys.reservations(userId)  // ["reservations", userId]
-queryKeys.health          // ["health"]
-```
-
-### Cache Invalidation
-
-After mutations, queries are automatically invalidated:
-
-- **After Reserve:**
-  - `queryKeys.items`
-  - `queryKeys.item(itemId)`
-  - `queryKeys.reservations(userId)`
-
-- **After Confirm/Cancel:**
-  - `queryKeys.reservations(userId)`
-  - `queryKeys.items`
-  - `queryKeys.item(itemId)` (if known)
-
----
-
-## Forms & Validation
-
-### Reserve Form Schema
-
-```typescript
-const reserveSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
-  qty: z.number().int().min(1).max(5),
-});
-```
-
-### Features
-- Real-time validation
-- Disabled submit while pending
-- Success/error toasts
-- Request ID display on errors
-
----
-
 ## Component Library
 
 ### shadcn/ui Components
@@ -338,7 +563,7 @@ const reserveSchema = z.object({
 | `Separator` | Visual dividers |
 | `Sonner` | Toast notifications |
 
-### Custom Components
+### Custom UI Blocks
 
 | Component | Purpose |
 |-----------|---------|
@@ -350,29 +575,51 @@ const reserveSchema = z.object({
 
 ---
 
-## Error Handling
+## Testing
 
-### API Errors
+**Test Stack:**
+- **Vitest** - Test runner (Vite-native)
+- **React Testing Library** - Component testing
+- **MSW** - API mocking
+- **jsdom** - Browser environment
 
-API errors are normalized to a consistent format:
+**Testing Philosophy:**
 
-```typescript
-interface ApiError {
-  status: number;      // HTTP status code
-  code: string;        // Error code (e.g., "OUT_OF_STOCK")
-  message: string;     // Human-readable message
-  details?: object;    // Additional details
-  requestId?: string;  // For debugging
-}
+1. **Test Behavior, Not Implementation**
+   ```typescript
+   // Good - Tests what user sees
+   expect(screen.getByText('Reserve Now')).toBeInTheDocument();
+   
+   // Avoid - Tests implementation details
+   expect(component.state.isOpen).toBe(true);
+   ```
+
+2. **Mock at Network Level**
+   ```typescript
+   // MSW intercepts actual HTTP requests
+   const server = setupServer(handlers);
+   // Your code makes real requests, MSW returns mocks
+   ```
+
+3. **Fresh Data Per Test**
+   ```typescript
+   beforeEach(() => {
+     resetMockData(); // Prevent test pollution
+   });
+   ```
+
+**Running Tests:**
+
+```bash
+# Run all tests
+npm test
+
+# Run with UI
+npm run test:ui
+
+# Run in watch mode
+npm run test:watch
 ```
-
-### Error Display
-
-Errors are displayed in the UI with:
-- Clear error message
-- Error code badge
-- Request ID (copyable)
-- Retry button (where applicable)
 
 ---
 
@@ -400,27 +647,6 @@ Errors are displayed in the UI with:
 3. Show loading state during submission
 4. Display success toast on completion
 5. Show error with request ID on failure
-
-### Defensive Programming
-
-Always assume the API might return unexpected data. The frontend includes defensive patterns:
-
-```typescript
-// Example: Ensure arrays are always arrays
-const reservations = Array.isArray(rawReservations) ? rawReservations : [];
-
-// Example: Provide default values
-const items = data ?? [];
-
-// Example: Safe property access
-const count = data?.length ?? 0;
-```
-
-This handles:
-- Backend returning single objects instead of arrays (bug fixed in backend)
-- `undefined` or `null` responses
-- Missing properties in API responses
-- Network errors with partial data
 
 ---
 
@@ -525,6 +751,8 @@ Here's a complete walkthrough of the application:
 | React Hook Form | Form handling | Latest |
 | Zod | Validation | Latest |
 | Lucide React | Icons | Latest |
+| Vitest | Testing | Latest |
+| MSW | API mocking | Latest |
 
 ---
 

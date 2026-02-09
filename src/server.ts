@@ -36,6 +36,7 @@ import { strictRateLimiter, slowDown } from './middleware/rateLimit.js';
 import { initializeCache, shutdownCache } from './cache/index.js';
 import { createRouter } from './routes/index.js';
 import { createHealthRouter } from './routes/health.js';
+import { expireReservations } from './services/reservations.js';
 
 /**
  * ============================================
@@ -311,47 +312,260 @@ async function gracefulShutdown(
 
 /**
  * ============================================
- * Application Entry Point
+ * Background Job: Reservation Expiration
  * ============================================
+ * 
+ * This module implements a background job that periodically checks for
+ * and expires stale reservations. This is a critical component for
+ * maintaining data consistency and preventing "lost" inventory.
+ * 
+ * LEARNING OBJECTIVES:
+ * 1. Background job patterns in Node.js
+ * 2. setInterval vs setTimeout for recurring tasks
+ * 3. Graceful shutdown with cleanup
+ * 4. Error handling in background tasks
+ * 
+ * WHY A BACKGROUND JOB?
+ * 
+ * Reservations have a time limit (10 minutes). When they expire, the stock
+ * must be returned to the available pool. There are two approaches:
+ * 
+ * 1. Lazy expiration: Check expiry when the reservation is accessed
+ *    - Pros: No background job needed
+ *    - Cons: Stock appears unavailable until someone tries to use it
+ * 
+ * 2. Background expiration (what we use): Periodically scan and expire
+ *    - Pros: Stock becomes available immediately when expired
+ *    - Cons: Requires a background process
+ * 
+ * We chose approach 2 for better UX - expired stock becomes available
+ * for new reservations immediately.
+ * 
+ * BEST PRACTICES IMPLEMENTED:
+ * - Run immediately on startup (catch expired reservations from downtime)
+ * - Regular interval (30 seconds - balance between freshness and load)
+ * - Error isolation (job errors don't crash the server)
+ * - Graceful cleanup (clear interval on shutdown)
+ * - Structured logging (track what the job is doing)
+ * 
+ * @see {@link ./services/reservations.ts} For the expireReservations() function
+ * @see {@link ./config/index.ts} For RESERVATION_TIMEOUT_MS configuration
  */
 
+/**
+ * Handle to the background expiration interval timer.
+ * 
+ * We store this to:
+ * 1. Prevent multiple intervals from being started
+ * 2. Allow clean shutdown by clearing the interval
+ * 3. Enable unit testing (can mock the timer)
+ */
+let expirationInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Start the background reservation expiration job.
+ * 
+ * This function:
+ * 1. Runs expiration immediately (catches reservations that expired while server was down)
+ * 2. Sets up a recurring interval (every 30 seconds)
+ * 3. Handles errors gracefully (logs but doesn't crash)
+ * 
+ * ERROR HANDLING STRATEGY:
+ * The job runs in an isolated try-catch block. If expiration fails:
+ * - Error is logged with context
+ * - Server continues running
+ * - Next interval will retry
+ * 
+ * This is important because we don't want a database hiccup to crash the server.
+ * 
+ * INTERVAL CHOICE:
+ * 30 seconds is a balance between:
+ * - Too frequent: Unnecessary database load
+ * - Too rare: Stock stays "locked" longer than needed
+ * 
+ * With a 10-minute reservation timeout, 30-second checks are plenty.
+ * 
+ * @example
+ * ```typescript
+ * // In main() during startup
+ * startExpirationJob();
+ * 
+ * // Logs on startup:
+ * // "Initial expiration check" (if any expired while down)
+ * // "⏰ Background expiration job started (30s interval)"
+ * 
+ * // Every 30 seconds (only if there are expired reservations):
+ * // "Expired stale reservations" { count: 3 }
+ * ```
+ */
+function startExpirationJob(): void {
+  // Run immediately on startup to catch any reservations that expired
+  // while the server was down. This ensures stock is returned promptly.
+  const result = expireReservations();
+  if (result.kind === 'OK' && result.expired > 0) {
+    logger.info('Initial expiration check', { expired: result.expired });
+  }
+
+  // Schedule periodic runs every 30 seconds
+  // setInterval is appropriate here because:
+  // - The task runs indefinitely
+  // - Regular intervals are desired
+  // - We don't need the flexibility of setTimeout recursion
+  expirationInterval = setInterval(() => {
+    try {
+      // Run the expiration logic
+      const result = expireReservations();
+      
+      // Only log if we actually expired something (reduces noise)
+      if (result.kind === 'OK' && result.expired > 0) {
+        logger.info('Expired stale reservations', { count: result.expired });
+      }
+      // Silently succeed if nothing expired - this is normal
+    } catch (error) {
+      // Error isolation: Log the error but don't let it crash the server
+      // The next interval will retry
+      logger.error('Error in expiration job', error);
+    }
+  }, 30000); // 30 seconds = 30,000 milliseconds
+
+  logger.info('⏰ Background expiration job started (30s interval)');
+}
+
+/**
+ * Stop the background expiration job.
+ * 
+ * This is called during graceful shutdown to:
+ * 1. Prevent the job from running after shutdown starts
+ * 2. Clean up resources (Node.js won't exit while intervals are pending)
+ * 3. Allow for clean unit testing (no hanging timers)
+ * 
+ * WHY CLEAR THE INTERVAL?
+ * 
+ * Node.js keeps the event loop alive while timers are pending.
+ * If we don't clear the interval, the process might hang during shutdown.
+ * 
+ * @example
+ * ```typescript
+ * // During graceful shutdown
+ * stopExpirationJob();
+ * // Logs: "⏰ Background expiration job stopped"
+ * ```
+ */
+function stopExpirationJob(): void {
+  if (expirationInterval) {
+    clearInterval(expirationInterval);
+    expirationInterval = null; // Clear the reference
+    logger.info('⏰ Background expiration job stopped');
+  }
+}
+
+/**
+ * ============================================
+ * Application Entry Point
+ * ============================================
+ * 
+ * This is the main entry point for the application. It orchestrates
+ * the startup sequence and manages the application lifecycle.
+ * 
+ * STARTUP SEQUENCE:
+ * 
+ * 1. Initialize database (create tables if not exist)
+ * 2. Seed database with sample data (if empty)
+ * 3. Initialize cache layer
+ * 4. Start background expiration job (CRITICAL - returns expired stock)
+ * 5. Start HTTP server
+ * 6. Register shutdown handlers
+ * 
+ * WHY THIS ORDER?
+ * 
+ * Database MUST be ready before the server starts accepting requests.
+ * The expiration job MUST start before the server to ensure any stock
+ * from expired reservations (while server was down) is returned immediately.
+ * 
+ * BACKGROUND JOB INTEGRATION:
+ * 
+ * The expiration job is started before the HTTP server. This ensures:
+ * - Stock from expired reservations is returned immediately on startup
+ * - No race condition where requests come in before job is ready
+ * - Clean shutdown sequence (job stops before HTTP connections close)
+ * 
+ * SHUTDOWN SEQUENCE:
+ * 
+ * When SIGTERM/SIGINT is received:
+ * 1. Stop expiration job (no new expirations)
+ * 2. Close HTTP server (no new connections)
+ * 3. Wait for in-flight requests to complete (30s timeout)
+ * 4. Close database connection
+ * 5. Flush logs and exit
+ * 
+ * ERROR HANDLING:
+ * 
+ * Startup errors are fatal (we exit with code 1).
+ * Runtime errors trigger graceful shutdown.
+ * Background job errors are logged but don't crash the server.
+ */
 async function main() {
   try {
     logger.info('🔧 Initializing application...');
 
-    // Initialize database schema
+    // Step 1: Initialize database schema
+    // Creates tables if they don't exist. Safe to run multiple times.
     logger.info('📦 Initializing database...');
     initializeSchema();
 
-    // Seed database (only if empty)
+    // Step 2: Seed database (only if empty)
+    // Adds sample items for development/testing. Idempotent operation.
     logger.info('🌱 Seeding database...');
     seedAll();
 
-    // Initialize cache
+    // Step 3: Initialize cache layer
+    // Sets up in-memory caching for frequently accessed data
     logger.info('💾 Initializing cache...');
     initializeCache();
 
-    // Start server
+    // Step 4: Start background expiration job
+    // CRITICAL: This returns expired stock to the available pool.
+    // Started BEFORE the HTTP server to ensure stock consistency
+    // before any requests can come in.
+    logger.info('⏰ Starting background jobs...');
+    startExpirationJob();
+
+    // Step 5: Start HTTP server
+    // Now we're ready to accept requests. All dependencies are initialized.
     const server = startServer();
 
-    // Setup shutdown handlers
-    process.on('SIGTERM', () => gracefulShutdown(server, 'SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown(server, 'SIGINT'));
+    // Step 6: Register shutdown handlers
+    // These ensure graceful cleanup when the process is terminated
+    
+    // SIGTERM: Kubernetes/docker sends this to stop the container
+    process.on('SIGTERM', () => {
+      stopExpirationJob(); // Stop background job first
+      gracefulShutdown(server, 'SIGTERM');
+    });
+    
+    // SIGINT: Ctrl+C in terminal
+    process.on('SIGINT', () => {
+      stopExpirationJob(); // Stop background job first
+      gracefulShutdown(server, 'SIGINT');
+    });
 
-    // Handle uncaught exceptions
+    // Uncaught exceptions: Something went really wrong
     process.on('uncaughtException', (err) => {
       logger.error('Uncaught exception', err);
+      stopExpirationJob();
       gracefulShutdown(server, 'uncaughtException');
     });
 
-    // Handle unhandled promise rejections
+    // Unhandled promise rejections: Async error not caught
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Unhandled promise rejection', reason, { promise });
+      stopExpirationJob();
       gracefulShutdown(server, 'unhandledRejection');
     });
 
     logger.info('✅ Application started successfully');
   } catch (error) {
+    // Startup errors are fatal - we can't run without these components
     logger.error('Failed to start application', error);
     process.exit(1);
   }

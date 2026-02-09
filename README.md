@@ -474,6 +474,7 @@ We've built a **reservation system** for an inventory store because it demonstra
 - **State transitions** - reserved → confirmed → cancelled/expired
 - **Concurrency** - Multiple users competing for limited inventory
 - **Idempotency needs** - Network retries can cause double-charging
+- **Background jobs** - Automatic expiration with stock restoration (30s interval)
 
 ## 🏗️ Architecture
 
