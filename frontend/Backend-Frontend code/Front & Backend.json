@@ -1,0 +1,166 @@
+npm init -y
+{
+  "name": "project-backend & Frontend ",
+  "version": "1.0.0"
+}
+dir
+npm install
+"scripts": {
+  "dev": "node index.js",
+  "db:migrate": "echo migrating",
+  "db:seed": "echo seeding"
+}
+npm run dev
+git add .
+git commit -m "Remove existing frontend"
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const res = await fetch(
+    {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    }
+  ); 
+
+  if (!res.ok) {
+    throw new Error(`API Error: ${res.status}`);
+  }
+  return res.json();
+}
+
+import { z } from "zod";
+
+export const reservationSchema = z.object({
+  userId: z.string().min(1),
+  itemId: z.string().min(1),
+  qty: z.number().int().positive(),
+});
+
+async function checkHealth() {
+  const res = await fetch(
+    { cache: "no-store" }
+  );
+  return res.ok;
+}
+
+export default async function HomePage() {
+  const healthy = await checkHealth();
+
+  return (
+    <main>
+      <h1 className="text-2xl font-bold">Backend Status</h1>
+      <p className={healthy ? "text-green-600" : "text-red-600"}>
+        {healthy ? "Server is running" : "Server is down"}
+      </p>
+    </main>
+  );
+}
+
+type Item = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+
+async function getItems(): Promise<Item[]> {
+  return apiFetch("/api/v1/items", {
+    next: { revalidate: 60 },
+  });
+}
+
+export default async function ItemsPage() {
+  const items = await getItems();
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold">Items</h1>
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li key={item.id} className="border p-3 rounded">
+            <p>{item.name}</p>
+            <p className="text-sm text-gray-600">
+              Available: {item.quantity}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+"use client";
+
+import { useState } from "react";
+import { reservationSchema } from "@/lib/validators";
+
+export default function ReservePage() {
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      userId: formData.get("userId"),
+      itemId: formData.get("itemId"),
+      qty: Number(formData.get("qty")),
+    };
+
+    const parsed = reservationSchema.safeParse(data);
+    if (!parsed.success) {
+      setError("Invalid input");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/reserve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify(parsed.data),
+        }
+      );
+
+      if (!res.ok) throw new Error();
+      setSuccess("Reservation successful");
+    } catch {
+      setError("Reservation failed");
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 max-w-md">
+      <h1 className="text-xl font-semibold">Reserve Item</h1>
+
+      <input name="userId" className="border p-2 w-full" placeholder="User ID" />
+      <input name="itemId" className="border p-2 w-full" placeholder="Item ID" />
+      <input name="qty" type="number" className="border p-2 w-full" placeholder="Quantity" />
+
+      <button className="bg-blue-600 text-white px-4 py-2 rounded">
+        Reserve
+      </button>
+
+      {error && <p className="text-red-600">{error}</p>}
+      {success && <p className="text-green-600">{success}</p>}
+    </form>
+  );
+}
+"use client";
+
+export default function ErrorPage() {
+  return <p className="text-red-600">Something went wrong.</p>;
+}
+export default function Loading() {
+  return <p>Loading...</p>;
+}
